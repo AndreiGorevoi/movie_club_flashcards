@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react'
 import Card from './Card'
-import { clearTable, loadTable, saveTable } from '../storage'
-import type { Table } from '../storage'
+import { useTable } from '../useTable'
 import type { Film } from '../types'
 
 interface Props {
@@ -12,26 +10,15 @@ interface Props {
 }
 
 export default function Session({ film, canEdit, onBack, onEdit }: Props) {
-  const [table, setTable] = useState<Table>(() => startTable(film))
+  const { table, connected, error, flip, reshuffle } = useTable(film)
 
-  // Переключились на другой фильм — берём его стол (или раскладываем новый).
-  useEffect(() => setTable(startTable(film)), [film])
+  const opened = table?.flipped.length ?? 0
+  const total = table?.order.length ?? film.questions.length
+  const allOpen = table !== null && opened === total
 
-  useEffect(() => saveTable(film.id, table), [film.id, table])
-
-  const opened = table.flipped.length
-  const total = table.order.length
-  const allOpen = opened === total
-
-  function flip(questionIndex: number) {
-    if (table.flipped.includes(questionIndex)) return
-    setTable((prev) => ({ ...prev, flipped: [...prev.flipped, questionIndex] }))
-  }
-
-  function reshuffle() {
-    if (opened > 0 && !confirm('Перетасовать колоду и закрыть все карточки?')) return
-    clearTable(film.id)
-    setTable({ order: shuffle(film.questions.length), flipped: [] })
+  function handleReshuffle() {
+    if (opened > 0 && !confirm('Перетасовать колоду и закрыть все карточки у всех?')) return
+    void reshuffle()
   }
 
   return (
@@ -50,9 +37,11 @@ export default function Session({ film, canEdit, onBack, onEdit }: Props) {
               Вопросы
             </button>
           )}
-          <button className="button button--quiet" onClick={reshuffle}>
-            Перетасовать
-          </button>
+          {canEdit && (
+            <button className="button button--quiet" onClick={handleReshuffle}>
+              Перетасовать
+            </button>
+          )}
         </div>
       </header>
 
@@ -65,34 +54,42 @@ export default function Session({ film, canEdit, onBack, onEdit }: Props) {
         </div>
         <p className="progress__label">
           {allOpen ? 'Все карточки открыты 🎉' : `Открыто ${opened} из ${total}`}
+          {table && <Viewers count={table.viewers} connected={connected} />}
         </p>
       </div>
 
-      <div className="table">
-        {table.order.map((questionIndex, position) => (
-          <Card
-            key={questionIndex}
-            number={position + 1}
-            question={film.questions[questionIndex]}
-            flipped={table.flipped.includes(questionIndex)}
-            onFlip={() => flip(questionIndex)}
-          />
-        ))}
-      </div>
+      {error && <p className="notice notice--error">{error}</p>}
+
+      {table === null ? (
+        <p className="state__text">Раскладываем карточки…</p>
+      ) : (
+        <div className="table">
+          {table.order.map((questionIndex, position) => (
+            <Card
+              key={questionIndex}
+              number={position + 1}
+              question={film.questions[questionIndex]}
+              flipped={table.flipped.includes(questionIndex)}
+              onFlip={() => void flip(questionIndex)}
+            />
+          ))}
+        </div>
+      )}
     </>
   )
 }
 
-function startTable(film: Film): Table {
-  return loadTable(film.id, film.questions.length) ?? { order: shuffle(film.questions.length), flipped: [] }
-}
-
-/** Фишер — Йетс: колода тасуется заново на каждую встречу. */
-function shuffle(length: number): number[] {
-  const order = Array.from({ length }, (_, i) => i)
-  for (let i = order.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[order[i], order[j]] = [order[j], order[i]]
+/** Сколько устройств за столом — чтобы было видно, все ли подключились. */
+function Viewers({ count, connected }: { count: number; connected: boolean }) {
+  if (!connected) {
+    return <span className="viewers viewers--offline"> · связь потеряна, ждём…</span>
   }
-  return order
+  if (count <= 1) return null
+
+  return (
+    <span className="viewers">
+      {' · '}
+      <span className="viewers__dot" /> за столом: {count}
+    </span>
+  )
 }

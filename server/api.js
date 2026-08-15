@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { countFilms, deleteFilm, importFilms, listFilms, saveFilm } from './db.js'
+import { flipCard, getTable, reshuffleTable, resetTable, subscribe } from './tables.js'
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? ''
 const MAX_BODY = 1_000_000 // ~1 МБ: вопросов столько не бывает
@@ -121,6 +122,8 @@ async function route(req, res, pathname) {
   if (pathname === '/api/films' && method === 'POST') {
     requireAdmin(req)
     const film = saveFilm(validateFilm(await readBody(req)))
+    // Вопросы могли измениться — стол пересоберётся под новый набор.
+    resetTable(film.id)
     return send(res, 200, { film })
   }
 
@@ -141,7 +144,44 @@ async function route(req, res, pathname) {
     return send(res, 200, { ok: true })
   }
 
+  /* --- Общий стол ---------------------------------------------------------- */
+
+  const table = pathname.match(/^\/api\/films\/([^/]+)\/(stream|table|flip|reshuffle)$/)
+  if (table) {
+    const filmId = decodeURIComponent(table[1])
+    const action = table[2]
+
+    // Поток: соединение остаётся открытым, ответ намеренно не завершаем.
+    if (action === 'stream' && method === 'GET') {
+      if (!subscribe(req, res, filmId)) throw new HttpError(404, 'Фильм не найден.')
+      return undefined
+    }
+
+    if (action === 'table' && method === 'GET') {
+      return send(res, 200, requireTable(getTable(filmId)))
+    }
+
+    if (action === 'flip' && method === 'POST') {
+      const { index } = await readBody(req)
+      const updated = flipCard(filmId, index)
+      if (!updated) throw new HttpError(400, 'Нет такой карточки.')
+      return send(res, 200, updated)
+    }
+
+    // Перетасовку отдаём только ведущему: иначе любой гость обнулит стол
+    // посреди встречи.
+    if (action === 'reshuffle' && method === 'POST') {
+      requireAdmin(req)
+      return send(res, 200, requireTable(reshuffleTable(filmId)))
+    }
+  }
+
   throw new HttpError(404, 'Нет такого метода.')
+}
+
+function requireTable(table) {
+  if (!table) throw new HttpError(404, 'Фильм не найден.')
+  return table
 }
 
 function requireWritesEnabled() {

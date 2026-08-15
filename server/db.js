@@ -29,6 +29,20 @@ db.exec(`
   )
 `)
 
+/**
+ * Разложенный стол. Раньше он жил в браузере, теперь общий на всех — иначе
+ * восемь человек видели бы восемь разных раскладок. Пишем сюда, а не только в
+ * память, чтобы редеплой посреди встречи не закрыл всем карточки.
+ */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS tables (
+    film_id    TEXT PRIMARY KEY REFERENCES films(id) ON DELETE CASCADE,
+    card_order TEXT NOT NULL,
+    flipped    TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  )
+`)
+
 const statements = {
   all: db.prepare('SELECT * FROM films ORDER BY created_at DESC'),
   byId: db.prepare('SELECT * FROM films WHERE id = ?'),
@@ -42,6 +56,17 @@ const statements = {
   `),
   remove: db.prepare('DELETE FROM films WHERE id = ?'),
   count: db.prepare('SELECT COUNT(*) AS n FROM films'),
+
+  tableById: db.prepare('SELECT * FROM tables WHERE film_id = ?'),
+  saveTable: db.prepare(`
+    INSERT INTO tables (film_id, card_order, flipped, updated_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(film_id) DO UPDATE SET
+      card_order = excluded.card_order,
+      flipped = excluded.flipped,
+      updated_at = excluded.updated_at
+  `),
+  removeTable: db.prepare('DELETE FROM tables WHERE film_id = ?'),
 }
 
 function toFilm(row) {
@@ -84,7 +109,29 @@ export function saveFilm({ id, title, note = '', questions, createdAt }) {
 }
 
 export function deleteFilm(id) {
+  statements.removeTable.run(id)
   return statements.remove.run(id).changes > 0
+}
+
+/* --- Состояние стола ------------------------------------------------------ */
+
+export function loadTableState(filmId) {
+  const row = statements.tableById.get(filmId)
+  if (!row) return null
+
+  try {
+    return { order: JSON.parse(row.card_order), flipped: JSON.parse(row.flipped) }
+  } catch {
+    return null
+  }
+}
+
+export function saveTableState(filmId, { order, flipped }) {
+  statements.saveTable.run(filmId, JSON.stringify(order), JSON.stringify(flipped), Date.now())
+}
+
+export function deleteTableState(filmId) {
+  statements.removeTable.run(filmId)
 }
 
 export function countFilms() {
