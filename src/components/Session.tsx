@@ -6,11 +6,12 @@ import type { Film } from '../types'
 
 interface Props {
   film: Film
+  canEdit: boolean
   onBack: () => void
   onEdit: () => void
 }
 
-export default function Session({ film, onBack, onEdit }: Props) {
+export default function Session({ film, canEdit, onBack, onEdit }: Props) {
   const [table, setTable] = useState<Table>(() => startTable(film))
 
   // Переключились на другой фильм — берём его стол (или раскладываем новый).
@@ -44,9 +45,11 @@ export default function Session({ film, onBack, onEdit }: Props) {
           {film.note && <p>{film.note}</p>}
         </div>
         <div className="session__tools">
-          <button className="button button--quiet" onClick={onEdit}>
-            Вопросы
-          </button>
+          {canEdit && (
+            <button className="button button--quiet" onClick={onEdit}>
+              Вопросы
+            </button>
+          )}
           <button className="button button--quiet" onClick={reshuffle}>
             Перетасовать
           </button>

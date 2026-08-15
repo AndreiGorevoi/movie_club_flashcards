@@ -1,27 +1,43 @@
 import { useRef, useState } from 'react'
-import { deleteFilm, exportBackup, importBackup } from '../storage'
+import Unlock from './Unlock'
+import { buildBackup, deleteFilm, forgetPassword, importFilms } from '../api'
+import type { SessionInfo } from '../api'
 import type { Film } from '../types'
 
 interface Props {
   films: Film[]
+  session: SessionInfo
   onOpen: (id: string) => void
   onAdd: () => void
   onEdit: (id: string) => void
-  onChanged: () => void
+  onChanged: () => Promise<void>
+  onSignedIn: () => void
 }
 
-export default function FilmList({ films, onOpen, onAdd, onEdit, onChanged }: Props) {
+export default function FilmList({
+  films,
+  session,
+  onOpen,
+  onAdd,
+  onEdit,
+  onChanged,
+  onSignedIn,
+}: Props) {
   const fileInput = useRef<HTMLInputElement>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null)
 
-  function handleDelete(film: Film) {
+  async function handleDelete(film: Film) {
     if (!confirm(`Удалить «${film.title}» вместе с вопросами?`)) return
-    deleteFilm(film.id)
-    onChanged()
+    try {
+      await deleteFilm(film.id)
+      await onChanged()
+    } catch (cause) {
+      setNotice({ text: message(cause), error: true })
+    }
   }
 
   function handleExport() {
-    const blob = new Blob([JSON.stringify(exportBackup(), null, 2)], {
+    const blob = new Blob([JSON.stringify(buildBackup(films), null, 2)], {
       type: 'application/json',
     })
     const url = URL.createObjectURL(blob)
@@ -34,11 +50,11 @@ export default function FilmList({ films, onOpen, onAdd, onEdit, onChanged }: Pr
 
   async function handleImport(file: File) {
     try {
-      const { added, updated } = importBackup(await file.text())
-      setNotice(`Готово: добавлено ${added}, обновлено ${updated}.`)
-      onChanged()
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Не удалось прочитать файл.')
+      const { added, updated } = await importFilms(await file.text())
+      setNotice({ text: `Готово: добавлено ${added}, обновлено ${updated}.` })
+      await onChanged()
+    } catch (cause) {
+      setNotice({ text: message(cause), error: true })
     }
   }
 
@@ -63,56 +79,87 @@ export default function FilmList({ films, onOpen, onAdd, onEdit, onChanged }: Pr
                 {film.questions.length} {plural(film.questions.length)}
               </span>
             </button>
-            <div className="film__tools">
-              <button className="icon" title="Изменить" onClick={() => onEdit(film.id)}>
-                ✎
-              </button>
-              <button className="icon" title="Удалить" onClick={() => handleDelete(film)}>
-                ✕
-              </button>
-            </div>
+            {session.admin && (
+              <div className="film__tools">
+                <button className="icon" title="Изменить" onClick={() => onEdit(film.id)}>
+                  ✎
+                </button>
+                <button className="icon" title="Удалить" onClick={() => void handleDelete(film)}>
+                  ✕
+                </button>
+              </div>
+            )}
           </article>
         ))}
 
         {films.length === 0 && (
           <p className="empty">
-            Пока пусто. Добавьте фильм и вопросы, которые хотите обсудить.
+            {session.admin
+              ? 'Пока пусто. Добавьте фильм и вопросы, которые хотите обсудить.'
+              : 'Здесь пока нет фильмов. Ведущий добавит их к встрече.'}
           </p>
         )}
       </div>
 
-      <button className="button button--primary button--block" onClick={onAdd}>
-        + Добавить фильм
-      </button>
+      {session.admin && (
+        <button className="button button--primary button--block" onClick={onAdd}>
+          + Добавить фильм
+        </button>
+      )}
 
-      <footer className="footer">
-        <button className="button button--quiet" onClick={handleExport}>
-          Скачать копию
-        </button>
-        <button className="button button--quiet" onClick={() => fileInput.current?.click()}>
-          Загрузить копию
-        </button>
-        <input
-          ref={fileInput}
-          type="file"
-          accept="application/json,.json"
-          hidden
-          onChange={(event) => {
-            const file = event.target.files?.[0]
-            if (file) void handleImport(file)
-            event.target.value = ''
+      {session.admin ? (
+        <footer className="footer">
+          <button className="button button--quiet" onClick={handleExport}>
+            Скачать копию
+          </button>
+          <button className="button button--quiet" onClick={() => fileInput.current?.click()}>
+            Загрузить копию
+          </button>
+          <button
+            className="button button--quiet"
+            onClick={() => {
+              forgetPassword()
+              void onChanged()
+            }}
+          >
+            Выйти
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) void handleImport(file)
+              event.target.value = ''
+            }}
+          />
+        </footer>
+      ) : (
+        <Unlock
+          writesEnabled={session.writesEnabled}
+          onSignedIn={async () => {
+            onSignedIn()
+            await onChanged()
           }}
         />
-      </footer>
+      )}
 
-      {notice && <p className="notice">{notice}</p>}
+      {notice && (
+        <p className={notice.error ? 'notice notice--error' : 'notice'}>{notice.text}</p>
+      )}
 
       <p className="fineprint">
-        Фильмы хранятся в этом браузере. «Скачать копию» — чтобы перенести их на другое
-        устройство или не потерять.
+        Фильмы хранятся на сервере — они на месте с любого устройства и после закрытого
+        браузера. Забывается только то, какие карточки вы успели перевернуть.
       </p>
     </>
   )
+}
+
+function message(cause: unknown): string {
+  return cause instanceof Error ? cause.message : 'Что-то пошло не так.'
 }
 
 function plural(n: number): string {

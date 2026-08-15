@@ -290,6 +290,67 @@ body {
   opacity: 0.85;
 }
 
+/* --- Загрузка и ошибки --------------------------------------------------- */
+
+.state {
+  padding: 80px 24px;
+  text-align: center;
+}
+
+.state__emoji {
+  margin: 0 0 12px;
+  font-size: 46px;
+}
+
+.state__emoji--pulse {
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+.state__title {
+  margin: 0 0 8px;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.state__text {
+  margin: 0 auto 22px;
+  max-width: 24rem;
+  color: var(--ink-soft);
+}
+
+/* --- Вход ведущего ------------------------------------------------------- */
+
+.unlock {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 26px;
+}
+
+.unlock .input {
+  width: auto;
+  flex: 1 1 200px;
+  max-width: 260px;
+}
+
+.unlock__error {
+  flex-basis: 100%;
+  margin-top: 0;
+}
+
 /* --- Форма --------------------------------------------------------------- */
 
 .form {

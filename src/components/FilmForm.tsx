@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { saveFilm } from '../storage'
+import { saveFilm } from '../api'
 import type { Film } from '../types'
 
 interface Props {
@@ -13,16 +13,24 @@ export default function FilmForm({ film, onDone, onCancel }: Props) {
   const [note, setNote] = useState(film?.note ?? '')
   const [text, setText] = useState(film?.questions.join('\n') ?? '')
   const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   const questions = parseQuestions(text)
 
-  function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     if (!title.trim()) return setError('У фильма должно быть название.')
     if (questions.length === 0) return setError('Нужен хотя бы один вопрос.')
 
-    saveFilm({ id: film?.id, title: title.trim(), note: note.trim(), questions })
-    onDone()
+    setBusy(true)
+    setError(null)
+    try {
+      await saveFilm({ id: film?.id, title: title.trim(), note: note.trim(), questions })
+      onDone()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Не удалось сохранить.')
+      setBusy(false)
+    }
   }
 
   return (
@@ -81,8 +89,8 @@ export default function FilmForm({ film, onDone, onCancel }: Props) {
         <button type="button" className="button button--quiet" onClick={onCancel}>
           Отмена
         </button>
-        <button type="submit" className="button button--primary">
-          Сохранить
+        <button type="submit" className="button button--primary" disabled={busy}>
+          {busy ? 'Сохраняем…' : 'Сохранить'}
         </button>
       </div>
     </form>
