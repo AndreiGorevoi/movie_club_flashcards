@@ -42,7 +42,7 @@ export function useTable(film: Film) {
   }, [film.id])
 
   const post = useCallback(
-    async (action: 'flip' | 'reshuffle', body?: unknown) => {
+    async (action: 'flip' | 'unflip' | 'reshuffle', body?: unknown) => {
       setError(null)
       try {
         const response = await fetch(`/api/films/${encodeURIComponent(film.id)}/${action}`, {
@@ -70,6 +70,7 @@ export function useTable(film: Film) {
     connected,
     error,
     flip: useCallback((index: number) => post('flip', { index }), [post]),
+    unflip: useCallback((index: number) => post('unflip', { index }), [post]),
     reshuffle: useCallback(() => post('reshuffle'), [post]),
   }
 }

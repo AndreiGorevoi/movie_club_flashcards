@@ -11,7 +11,7 @@ interface Props {
 }
 
 export default function Session({ film, canEdit, onBack, onEdit }: Props) {
-  const { table, connected, error, flip, reshuffle } = useTable(film)
+  const { table, connected, error, flip, unflip, reshuffle } = useTable(film)
   /** Индекс вопроса, раскрытого на весь экран, — чтобы зачитать вслух. */
   const [zoomed, setZoomed] = useState<number | null>(null)
 
@@ -84,6 +84,7 @@ export default function Session({ film, canEdit, onBack, onEdit }: Props) {
               question={film.questions[questionIndex]}
               flipped={table.flipped.includes(questionIndex)}
               onFlip={() => void flip(questionIndex)}
+              onUnflip={() => void unflip(questionIndex)}
               onZoom={() => setZoomed(questionIndex)}
             />
           ))}
@@ -95,6 +96,10 @@ export default function Session({ film, canEdit, onBack, onEdit }: Props) {
           number={(table?.order.indexOf(zoomed) ?? 0) + 1}
           question={film.questions[zoomed]}
           onClose={() => setZoomed(null)}
+          onCloseCard={() => {
+            setZoomed(null)
+            void unflip(zoomed)
+          }}
         />
       )}
     </>
@@ -106,10 +111,12 @@ function Zoom({
   number,
   question,
   onClose,
+  onCloseCard,
 }: {
   number: number
   question: string
   onClose: () => void
+  onCloseCard: () => void
 }) {
   return (
     <div className="zoom" onClick={onClose} role="dialog" aria-label={question}>
@@ -117,6 +124,16 @@ function Zoom({
       {/* На весь экран места хватает, поэтому здесь достаточно трёх ступеней
           вместо измерений — а если вопрос всё же огромный, он прокрутится. */}
       <p className={`zoom__question zoom__question--${lengthOf(question)}`}>{question}</p>
+      <button
+        className="button button--quiet"
+        onClick={(event) => {
+          // Оверлей закрывается по клику в любом месте — иначе он съел бы это.
+          event.stopPropagation()
+          onCloseCard()
+        }}
+      >
+        Закрыть карточку обратно
+      </button>
       <p className="zoom__hint">Нажмите в любом месте, чтобы вернуться к столу</p>
     </div>
   )

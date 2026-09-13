@@ -77,6 +77,27 @@ export function flipCard(filmId, index) {
   return getTable(filmId)
 }
 
+/**
+ * Закрыть карточку обратно — на случай, когда ткнули мимо. Тоже идемпотентно:
+ * закрывать уже закрытую нечего. Пароль не нужен по той же причине, по которой
+ * не нужен на переворот: кто открыл случайно, тот и закрывает.
+ */
+export function unflipCard(filmId, index) {
+  const film = getFilm(filmId)
+  if (!film) return null
+
+  const table = ensureTable(film)
+  if (!Number.isInteger(index) || index < 0 || index >= film.questions.length) return null
+  if (!table.flipped.includes(index)) return getTable(filmId)
+
+  saveTableState(filmId, {
+    order: table.order,
+    flipped: table.flipped.filter((flippedIndex) => flippedIndex !== index),
+  })
+  broadcast(filmId)
+  return getTable(filmId)
+}
+
 export function reshuffleTable(filmId) {
   const film = getFilm(filmId)
   if (!film) return null

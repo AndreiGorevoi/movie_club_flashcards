@@ -1,6 +1,13 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { countFilms, deleteFilm, importFilms, listFilms, saveFilm } from './db.js'
-import { flipCard, getTable, reshuffleTable, resetTable, subscribe } from './tables.js'
+import {
+  flipCard,
+  getTable,
+  reshuffleTable,
+  resetTable,
+  subscribe,
+  unflipCard,
+} from './tables.js'
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? ''
 const MAX_BODY = 1_000_000 // ~1 МБ: вопросов столько не бывает
@@ -146,7 +153,7 @@ async function route(req, res, pathname) {
 
   /* --- Общий стол ---------------------------------------------------------- */
 
-  const table = pathname.match(/^\/api\/films\/([^/]+)\/(stream|table|flip|reshuffle)$/)
+  const table = pathname.match(/^\/api\/films\/([^/]+)\/(stream|table|flip|unflip|reshuffle)$/)
   if (table) {
     const filmId = decodeURIComponent(table[1])
     const action = table[2]
@@ -164,6 +171,14 @@ async function route(req, res, pathname) {
     if (action === 'flip' && method === 'POST') {
       const { index } = await readBody(req)
       const updated = flipCard(filmId, index)
+      if (!updated) throw new HttpError(400, 'Нет такой карточки.')
+      return send(res, 200, updated)
+    }
+
+    // Закрыть обратно случайно открытую — без пароля, как и переворот.
+    if (action === 'unflip' && method === 'POST') {
+      const { index } = await readBody(req)
+      const updated = unflipCard(filmId, index)
       if (!updated) throw new HttpError(400, 'Нет такой карточки.')
       return send(res, 200, updated)
     }

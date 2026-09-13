@@ -509,7 +509,13 @@ body {
   gap: 20px;
 }
 
+.card-slot {
+  position: relative;
+}
+
 .card {
+  display: block;
+  width: 100%;
   aspect-ratio: 3 / 4;
   padding: 0;
   border: 0;
@@ -673,6 +679,40 @@ body {
   opacity: 0.8;
 }
 
+.card__close {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.card__close:hover {
+  transform: scale(1.12);
+  background: #fff;
+  color: var(--coral-deep);
+}
+
+.card__close:active {
+  transform: scale(0.96);
+}
+
 .card__corner {
   position: absolute;
   top: 12px;
@@ -701,6 +741,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .card,
   .card__inner,
+  .card__close,
   .progress__fill,
   .film,
   .button {

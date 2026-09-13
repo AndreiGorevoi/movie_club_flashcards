@@ -5,6 +5,7 @@ interface Props {
   question: string
   flipped: boolean
   onFlip: () => void
+  onUnflip: () => void
   onZoom: () => void
 }
 
@@ -47,33 +48,48 @@ function useFitText(
   }, [box, text, question])
 }
 
-export default function Card({ number, question, flipped, onFlip, onZoom }: Props) {
+export default function Card({ number, question, flipped, onFlip, onUnflip, onZoom }: Props) {
   const box = useRef<HTMLSpanElement>(null)
   const text = useRef<HTMLSpanElement>(null)
   useFitText(box, text, question)
 
   return (
-    <button
-      className={flipped ? 'card card--open' : 'card'}
-      onClick={flipped ? onZoom : onFlip}
-      aria-pressed={flipped}
-      aria-label={flipped ? `${question} — открыть крупно` : `Карточка ${number}, закрыта`}
-      style={{ '--tilt': `${tiltFor(number)}deg` } as React.CSSProperties}
-    >
-      <span className="card__inner">
-        <span className="card__face card__face--back">
-          <span className="card__number">{number}</span>
-        </span>
-        <span className="card__face card__face--front">
-          <span className="card__question" ref={box}>
-            <span className="card__text" ref={text}>
-              {question}
-            </span>
+    // Обёртка нужна крестику: внутрь карточки его не вложить (кнопка в кнопке),
+    // а поверх лица он налезал бы на текст вопроса.
+    <div className="card-slot">
+      <button
+        className={flipped ? 'card card--open' : 'card'}
+        onClick={flipped ? onZoom : onFlip}
+        aria-pressed={flipped}
+        aria-label={flipped ? `${question} — открыть крупно` : `Карточка ${number}, закрыта`}
+        style={{ '--tilt': `${tiltFor(number)}deg` } as React.CSSProperties}
+      >
+        <span className="card__inner">
+          <span className="card__face card__face--back">
+            <span className="card__number">{number}</span>
           </span>
-          <span className="card__corner">{number}</span>
+          <span className="card__face card__face--front">
+            <span className="card__question" ref={box}>
+              <span className="card__text" ref={text}>
+                {question}
+              </span>
+            </span>
+            <span className="card__corner">{number}</span>
+          </span>
         </span>
-      </span>
-    </button>
+      </button>
+
+      {flipped && (
+        <button
+          className="card__close"
+          onClick={onUnflip}
+          title="Закрыть карточку"
+          aria-label={`Закрыть карточку ${number}`}
+        >
+          ×
+        </button>
+      )}
+    </div>
   )
 }
 
