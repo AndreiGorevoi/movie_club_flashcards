@@ -15,9 +15,14 @@ const subscribers = new Map()
 /** Прокси и мобильные сети рвут молчащие соединения — напоминаем о себе. */
 const HEARTBEAT_MS = 25_000
 
-/** Фишер — Йетс: колода тасуется заново на каждую встречу. */
+/** Карточки в том порядке, в котором ведущий ввёл вопросы. */
+function inputOrder(length) {
+  return Array.from({ length }, (_, i) => i)
+}
+
+/** Фишер — Йетс: тасуем только по кнопке, сами по себе карточки не перемешиваются. */
 function shuffle(length) {
-  const order = Array.from({ length }, (_, i) => i)
+  const order = inputOrder(length)
   for (let i = order.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
     ;[order[i], order[j]] = [order[j], order[i]]
@@ -27,13 +32,14 @@ function shuffle(length) {
 
 /**
  * Стол фильма: из базы, если он там есть и всё ещё сходится с вопросами.
- * Фильм могли отредактировать между встречами — тогда раскладываем заново.
+ * Фильм могли отредактировать между встречами — тогда раскладываем заново,
+ * в порядке ввода: ведущий часто продумывает последовательность вопросов.
  */
 function ensureTable(film) {
   const stored = loadTableState(film.id)
   if (stored && stored.order.length === film.questions.length) return stored
 
-  const fresh = { order: shuffle(film.questions.length), flipped: [] }
+  const fresh = { order: inputOrder(film.questions.length), flipped: [] }
   saveTableState(film.id, fresh)
   return fresh
 }
@@ -103,6 +109,21 @@ export function reshuffleTable(filmId) {
   if (!film) return null
 
   saveTableState(filmId, { order: shuffle(film.questions.length), flipped: [] })
+  broadcast(filmId)
+  return getTable(filmId)
+}
+
+/**
+ * Вернуть карточки в порядок ввода. Открытые не закрываем: `flipped` хранит
+ * индексы вопросов, а не места на столе, так что они просто переедут вместе
+ * с карточками.
+ */
+export function unshuffleTable(filmId) {
+  const film = getFilm(filmId)
+  if (!film) return null
+
+  const table = ensureTable(film)
+  saveTableState(filmId, { order: inputOrder(film.questions.length), flipped: table.flipped })
   broadcast(filmId)
   return getTable(filmId)
 }

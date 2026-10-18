@@ -7,6 +7,7 @@ import {
   resetTable,
   subscribe,
   unflipCard,
+  unshuffleTable,
 } from './tables.js'
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? ''
@@ -153,7 +154,7 @@ async function route(req, res, pathname) {
 
   /* --- Общий стол ---------------------------------------------------------- */
 
-  const table = pathname.match(/^\/api\/films\/([^/]+)\/(stream|table|flip|unflip|reshuffle)$/)
+  const table = pathname.match(/^\/api\/films\/([^/]+)\/(stream|table|flip|unflip|reshuffle|unshuffle)$/)
   if (table) {
     const filmId = decodeURIComponent(table[1])
     const action = table[2]
@@ -188,6 +189,12 @@ async function route(req, res, pathname) {
     if (action === 'reshuffle' && method === 'POST') {
       requireAdmin(req)
       return send(res, 200, requireTable(reshuffleTable(filmId)))
+    }
+
+    // Тоже только ведущему: раскладка общая, гость не должен двигать её у всех.
+    if (action === 'unshuffle' && method === 'POST') {
+      requireAdmin(req)
+      return send(res, 200, requireTable(unshuffleTable(filmId)))
     }
   }
 

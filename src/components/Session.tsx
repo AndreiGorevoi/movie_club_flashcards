@@ -11,13 +11,15 @@ interface Props {
 }
 
 export default function Session({ film, canEdit, onBack, onEdit }: Props) {
-  const { table, connected, error, flip, unflip, reshuffle } = useTable(film)
+  const { table, connected, error, flip, unflip, reshuffle, unshuffle } =
+    useTable(film)
   /** Индекс вопроса, раскрытого на весь экран, — чтобы зачитать вслух. */
   const [zoomed, setZoomed] = useState<number | null>(null)
 
   const opened = table?.flipped.length ?? 0
   const total = table?.order.length ?? film.questions.length
   const allOpen = table !== null && opened === total
+  const shuffled = table?.order.some((questionIndex, position) => questionIndex !== position) ?? false
 
   function handleReshuffle() {
     if (opened > 0 && !confirm('Перетасовать колоду и закрыть все карточки у всех?')) return
@@ -53,6 +55,11 @@ export default function Session({ film, canEdit, onBack, onEdit }: Props) {
           {canEdit && (
             <button className="button button--quiet" onClick={handleReshuffle}>
               Перетасовать
+            </button>
+          )}
+          {canEdit && shuffled && (
+            <button className="button button--quiet" onClick={() => void unshuffle()}>
+              По порядку
             </button>
           )}
         </div>
